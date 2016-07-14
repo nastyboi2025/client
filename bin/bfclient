@@ -1,0 +1,172 @@
+#!/usr/bin/env php
+<?php
+/**
+ * bfclient - to call from command line. See usage for instructions on how to use
+ *
+ * Author: Luke Harwood
+ * Date: 24/05/16
+ */
+
+if (class_exists('Heg\BFClient') === false) {
+    if (file_exists(__DIR__.'/../vendor/autoload.php')) {  // cloned / dev environment?
+        require_once(__DIR__.'/../vendor/autoload.php');
+    } else {
+        require_once(realpath(__DIR__.'/../../../').'/autoload.php');
+    }
+}
+
+use Heg\BFClient;
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
+
+$methods = array('sendRequest'      => array('-sr', '--send-request'),
+                 'isRequestValid'   => array('-v',  '--valid'),
+                 'getRequestSchema' => array('-rs', '--request-schema')
+);
+
+$options = array('tidy' => array('-t', '--tidy'),
+                 'debug' => array('-d', '--debug')
+);
+$optionValues = array('tidy' => false, 'debug' => false);
+
+checkArgsAndCall($argv);
+exit(1);
+
+function call($argv, $input_data, $method)
+{
+    array_shift($argv);
+
+    array_push($argv, $input_data);
+    call_user_func_array($method, $argv);
+}
+
+function sendRequest($path, $httpMethod, $request)
+{
+    global $optionValues;
+
+    $client = new BFClient(array(), getStreamHandler($optionValues['debug']));
+
+    try {
+        $response = $client->sendRequest($path, $httpMethod, $request);
+    } catch (Exception $e) {
+        print $e->getMessage();
+        exit(1);
+    }
+
+    if ($response->getStatusCode() == 200) {
+
+        if ($optionValues['tidy']) {
+            print json_encode($response->json(), JSON_PRETTY_PRINT);
+        } else {
+            print json_encode($response->json());
+        }
+        print "\n";
+    } else {
+        print $response->getStatusCode();
+    }
+
+}
+
+function isRequestValid($path, $httpMethod, $request)
+{
+    global $optionValues;
+
+    $client = new BFClient(array(), getStreamHandler($optionValues['debug']));
+
+    try {
+        $client->isRequestValid($path, $httpMethod, $request);
+    } catch (Exception $e) {
+        return 0;
+    }
+
+    return 1;
+}
+
+function getRequestSchema($path, $httpMethod)
+{
+    global $optionValues;
+
+    $client = new BFClient(array(), getStreamHandler($optionValues['debug']));
+    $schema = $client->getRequestSchema($path, $httpMethod, true, $optionValues['tidy']);
+
+    print $schema;
+}
+
+function checkArgsAndCall($argv)
+{
+    global $methods, $options, $optionValues;
+
+    stream_set_blocking(STDIN, 0);
+    $input_data = file_get_contents("php://stdin");
+
+    array_shift($argv);
+
+    if (count($argv) < 1) {
+        usage();
+        exit(1);
+    }
+
+    // Parse options first
+    foreach ($options as $key => $option) {
+        foreach ($option as $optionValue) {
+            if ((array_search($optionValue, $argv)) !== false) {
+                $optionValues[$key] = true;
+                $argv = array_values(array_diff($argv, [$optionValue]));
+            }
+        }
+    }
+
+    if (count($argv) < 1) {
+        usage();
+        exit(1);
+    }
+
+    // Then look at actual method
+    foreach ($methods as $key => $method) {
+        if (in_array($argv[0], $method)) {
+
+            call($argv, $input_data, $key);
+            exit(1);
+        }
+    }
+
+    usage();
+}
+
+function getStreamHandler($debug) {
+
+    return $debug ? new StreamHandler('php://stdout', Logger::DEBUG) : null;
+}
+
+function usage()
+{
+    echo <<<HLP
+Usage: bfclient <method> [ARG] [OPTION]
+
+Methods:
+
+ -sr, --send-request    Send request to Business Fabric
+ args: 
+        <path>          Path of URI
+        <httpdMethod>   Method used for HTTP, eg. POST/GET/...
+        STDIN           Request to pass over       
+
+ -v, --valid            Validate request before sending
+ args: 
+        <path>          Path of URI
+        <httpdMethod>   Method used for HTTP
+        STDIN           Request to validate     
+
+-rs, --request-schema   Get the request schema for path
+        <path>          Path of URI
+        <httpdMethod>   Method used for HTTP.
+
+Options:
+
+ -d, --debug            Prints out useful debug information
+ -t, --tidy             Tidy the output
+ 
+HLP;
+}
+
+?>

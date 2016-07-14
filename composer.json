@@ -1,0 +1,32 @@
+{
+  "name": "heg/brand-integration-client",
+  "description": "HEG Brand Integration Client",
+  "minimum-stability": "stable",
+  "license": "proprietary",
+  "authors": [
+    {
+      "name": "Luke Harwood",
+      "email": "luke.harwood@heg.com"
+    }
+  ],
+  "require": {
+    "phpunit/phpunit": "5.3.2",
+    "nategood/httpful": "0.2.20",
+    "ramsey/uuid":"2.8.2",
+    "guzzlehttp/guzzle" : "5.3.0",
+    "guzzlehttp/retry-subscriber": "2.0.2",
+    "justinrainbow/json-schema": "2.0.2",
+    "monolog/monolog" : "1.19.0",
+    "fr3d/swagger-assertions": "^0.5.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "Heg\\": "src/Heg"
+    }
+  },
+    "autoload-dev": {
+      "psr-4": {
+        "HegDev\\": "src/Heg"
+      }
+    }
+}
